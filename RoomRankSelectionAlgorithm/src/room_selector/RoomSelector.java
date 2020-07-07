@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
 public class RoomSelector {
 
   private static int BASE_WEIGHT = 2;
+  private static int GEN_ITERATIONS = 100;
+  private static int RANDOM_SEED = 10;
 
   private int roomCount;
   private List<Person> persons;
@@ -66,21 +68,45 @@ public class RoomSelector {
   }
 
   public String roomAllocs() {
-    Random gen = new Random();
+    Random gen = new Random(RANDOM_SEED);
+    int seed = gen.nextInt();
+    for (int i = 0; i < GEN_ITERATIONS; i++) {
+      seed = gen.nextInt();
+    }
+    Random finalGen = new Random(seed);
 
     for (int i = 0; i < roomCount; i++) {
-      int finalI = i;
-      int lowestRank = persons.stream().map(p -> p.getRankIndex(finalI)).reduce(Integer::min).get();
-      List<Person> competitorsRank = persons.stream().filter(p -> p.getRankIndex(finalI) == lowestRank)
-          .collect(Collectors.toList());
-      int lowestWeight = competitorsRank.stream().map(Person::getWeight).reduce(Integer::min).get();
-      List<Person> competitorsWeight = competitorsRank.stream().filter(p -> p.getWeight() == lowestWeight)
-          .collect(Collectors.toList());
-      allocs.put(Rooms.values()[i], competitorsWeight.get(gen.nextInt(competitorsWeight.size())));
-      persons.remove(allocs.get(Rooms.values()[i]));
+      List<Person> pref_one = new ArrayList<>();
+      List<Person> pref_two = new ArrayList<>();
+      List<Person> pref_three = new ArrayList<>();
+      List<Person> pref_four = new ArrayList<>();
+      List<Person>[] lists = new List[4];
+      lists[0] = pref_one;
+      lists[1] = pref_two;
+      lists[2] = pref_three;
+      lists[3] = pref_four;
+      for (Person p : persons) {
+        lists[p.getRankIndex(i) - 1].add(p);
+      }
+      Person person = null;
+      for (List<Person> preference_list : lists) {
+        if (person == null && !preference_list.isEmpty()) {
+          int lowestWeight = preference_list.stream()
+              .map(Person::getWeight)
+              .reduce(Integer::min)
+              .get();
+          List<Person> lowestWeightPeople = preference_list.stream()
+              .filter(p -> p.getWeight() == lowestWeight)
+              .collect(Collectors.toList());
+          person = lowestWeightPeople.get(Math.abs(finalGen.nextInt()) % lowestWeightPeople.size());
+        }
+      }
+      allocs.put(Rooms.values()[i], person);
+      persons.remove(person);
     }
     return allocsToString();
   }
+
 
   private String allocsToString() {
     StringBuilder sb = new StringBuilder();
